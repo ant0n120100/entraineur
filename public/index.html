@@ -5,155 +5,235 @@
 <style>
 :root{--bg:#161615;--fg:#ecece8;--mut:#9a9a93;--card:#222220;--line:#34342f;--acc:#ff8a57;color-scheme:dark}
 @media (prefers-color-scheme:light){:root{--bg:#fafaf7;--fg:#1c1c1a;--mut:#6b6b66;--card:#fff;--line:#e3e3dc;--acc:#d9541e;color-scheme:light}}
+*{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
-main{max-width:640px;margin:0 auto;padding:16px}
-h1{font-size:1.4rem;margin:.2em 0}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
-label{display:block;font-size:.85rem;color:var(--mut);margin:8px 0 2px}
-input,select,button,a.btn{font:inherit;width:100%;box-sizing:border-box;padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-button,a.btn{display:block;text-align:center;text-decoration:none;background:var(--acc);color:#fff;border:0;font-weight:600;margin-top:12px;cursor:pointer}
+main{max-width:680px;margin:0 auto;padding:16px}
+h1{font-size:1.4rem;margin:.2em 0 .6em}
+h2{font-size:1.05rem;margin:0 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
 .mut{color:var(--mut);font-size:.9rem}
-.box{overflow-x:auto}
-table{border-collapse:collapse;width:100%}
-td,th{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
-th{font-size:.8rem;color:var(--mut)}
-.kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
-.kpi b{display:block;font-size:1.3rem}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
+button,input,select,a.btn{font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.tabs button.on,.chips button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 14px}
+.chips button{flex:1 1 auto;cursor:pointer}
+.go,a.btn{display:block;width:100%;text-align:center;text-decoration:none;background:var(--acc);color:#fff;border:0;font-weight:600;cursor:pointer}
+.q{font-weight:600;margin-top:4px}
+.pill{display:inline-block;padding:3px 10px;border-radius:99px;font-weight:600;font-size:.9rem;color:#fff}
+.st{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.st div{padding:8px;border:1px solid var(--line);border-radius:10px}
 .note{border-left:3px solid var(--acc);padding-left:10px;margin:8px 0}
+svg{width:100%;height:auto;display:block}
+.step{border-top:1px solid var(--line);padding:10px 0}
+.step b{display:flex;justify-content:space-between;gap:8px}
+.leg{display:flex;flex-wrap:wrap;gap:10px;font-size:.8rem;color:var(--mut);margin-top:6px}
+.leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px}
+#chat{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+details summary{cursor:pointer;font-weight:600}
+label{display:block;font-size:.85rem;color:var(--mut);margin:8px 0 2px}
+input,select{width:100%}
 </style></head><body><main>
-<h1>Coach du matin</h1>
+<h1 id="hi">Coach du matin</h1>
+
 <div id="auth" class="card" hidden>
-<p>Connecte ton compte Strava pour calibrer les séances sur tes données réelles.</p>
+<p>Connecte Strava pour que le coach connaisse ton entraînement.</p>
 <a class="btn" href="/auth/login">Se connecter avec Strava</a>
 </div>
 
 <div id="app" hidden>
-<div class="card">
-<div class="kpi"><div><b id="k1">–</b><span class="mut">Forme (CTL)</span></div><div><b id="k2">–</b><span class="mut">Fatigue (ATL)</span></div><div><b id="k3">–</b><span class="mut">Fraîcheur (TSB)</span></div></div>
-<p class="mut" id="sum"></p>
-<div class="box"><table id="last"></table></div>
-</div>
+<div class="tabs"><button class="on" data-t="s">Ma séance</button><button data-t="c">Parler au coach</button></div>
 
-<div class="card">
-<div class="row">
-<div><label for="jour">Jour</label><select id="jour"><option value="1">Lundi</option><option value="2">Mardi</option><option value="3">Mercredi</option><option value="4">Jeudi</option><option value="5">Vendredi</option><option value="6">Samedi</option><option value="0">Dimanche</option></select></div>
-<div><label for="dur">Durée dispo</label><select id="dur"><option value="45">45 min</option><option value="52">52 min</option><option value="58" selected>58 min</option></select></div>
+<section id="t-s">
+<div class="card"><h2>Où tu en es</h2><div class="st" id="state"></div><p class="mut" id="wk"></p></div>
+
+<div class="card"><h2>Ce matin</h2>
+<div class="q">Comment as-tu dormi ?</div>
+<div class="chips" data-k="sleep"><button data-v="5.5">Moins de 6 h</button><button data-v="6.5">6 à 7 h</button><button data-v="7.5">7 à 8 h</button><button data-v="8.5">8 h et plus</button></div>
+<div class="q">Et tes jambes ?</div>
+<div class="chips" data-k="legs"><button data-v="3">Lourdes</button><button data-v="6">Normales</button><button data-v="8">Légères</button></div>
+<div class="q">Une douleur ou une gêne ?</div>
+<div class="chips" data-k="pain"><button data-v="non">Non</button><button data-v="leger">Un peu</button><button data-v="oui">Oui</button></div>
+<div class="q">Combien de temps sur le vélo ?</div>
+<div class="chips" data-k="dur"><button data-v="45">45 min</button><button data-v="52">52 min</button><button data-v="58">58 min</button></div>
+<button class="go" id="go" disabled style="opacity:.5">Voir ma séance</button>
 </div>
-<div class="row">
-<div><label for="ftp">FTP (W)</label><input id="ftp" type="number" min="60" max="500"></div>
-<div><label for="type">Séance</label><select id="type"><option value="auto">Auto selon le jour</option><option value="seuil">Seuil</option><option value="pma">PMA</option><option value="facile">Facile cadence</option><option value="test">Test FTP rampe</option></select></div>
-</div>
-<div class="row">
-<div><label for="som">Sommeil (h)</label><input id="som" type="number" min="3" max="12" step="0.5" value="7.5"></div>
-<div><label for="leg">Jambes (1-10)</label><input id="leg" type="number" min="1" max="10" value="7"></div>
-</div>
-<button id="go">Générer la séance</button>
+<div id="res"></div>
+</section>
+
+<section id="t-c" hidden><div class="card">
+<h2>Ton coach</h2>
+<div id="chat"></div>
+<div class="chips"><button id="c1" type="button">Prépare ma séance</button><button id="c2" type="button">Où j’en suis ?</button></div>
+<div style="display:grid;grid-template-columns:1fr auto;gap:8px"><input id="cin" placeholder="Écris au coach…" autocomplete="off"><button id="cgo" type="button" class="go" style="width:auto">Envoyer</button></div>
+</div></section>
+
+<details class="card"><summary>Réglages</summary>
+<label for="ftp">FTP (watts)</label><input id="ftp" type="number" min="60" max="500">
 <p class="mut" id="ftpn"></p>
-</div>
-<div id="out"></div>
-<div class="card">
-<h2 style="font-size:1.1rem;margin:0 0 6px">Coach IA</h2>
-<div id="chat" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px"></div>
-<div class="row"><button id="c1" type="button" style="margin-top:0">Ma séance du jour</button><button id="c2" type="button" style="margin-top:0">Où j’en suis ?</button></div>
-<div class="row" style="grid-template-columns:1fr auto;margin-top:10px"><input id="cin" placeholder="Écris au coach…" autocomplete="off"><button id="cgo" type="button" style="margin-top:0;width:auto">Envoyer</button></div>
-</div>
+<label for="jour">Jour</label><select id="jour"><option value="1">Lundi</option><option value="2">Mardi</option><option value="3">Mercredi</option><option value="4">Jeudi</option><option value="5">Vendredi</option><option value="6">Samedi</option><option value="0">Dimanche</option></select>
+<label for="type">Type de séance</label><select id="type"><option value="auto">Choisie par le coach</option><option value="seuil">Seuil</option><option value="pma">PMA</option><option value="facile">Facile cadence</option><option value="test">Test FTP rampe</option></select>
+</details>
 <p class="mut"><a href="/auth/logout" style="color:inherit">Se déconnecter</a></p>
 </div>
 
 <script>
 const $=id=>document.getElementById(id);
 const DEF={1:"seuil",2:"facile",3:"facile",4:"pma",5:"facile",6:"libre",0:"libre"};
-let D=null,M={h24:0,tsb:0};
+const NAME={facile:"Facile, cadence",seuil:"Seuil",pma:"PMA (efforts courts et durs)",test:"Test FTP"};
+let D=null,M={h24:0,tsb:0,ctl:0,atl:0},ans={},cur=null;
 $("jour").value=String(new Date().getDay());
 
+/* ---------- données Strava ---------- */
 function load(a,ftp){
-  const m=a.sec/60;
   if(/Ride/.test(a.sport)&&a.w&&ftp){const f=a.w/ftp;return a.sec/3600*f*f*100;}
-  return m*(/Run/.test(a.sport)?1:0.6);
+  return a.sec/60*(/Run/.test(a.sport)?1:0.6);
 }
 function metrics(){
-  const ftp=+$("ftp").value||0,now=Date.now(),days=60,day=new Array(days).fill(0);
-  M.h24=0;
+  const ftp=+$("ftp").value||0,now=Date.now(),n=60,day=new Array(n).fill(0);M.h24=0;
   D.acts.forEach(a=>{
-    const age=Math.floor((now-new Date(a.t).getTime())/864e5);
-    if(age>=0&&age<days)day[days-1-age]+=load(a,ftp);
-    if(now-new Date(a.t).getTime()<864e5)M.h24+=a.sec/60;
+    const t=new Date(a.t).getTime(),age=Math.floor((now-t)/864e5);
+    if(age>=0&&age<n)day[n-1-age]+=load(a,ftp);
+    if(now-t<864e5)M.h24+=a.sec/60;
   });
-  let c=0,t=0;
-  day.forEach((v,i)=>{if(i===days-1){M.tsb=c-t;}c+=(v-c)/42;t+=(v-t)/7;});
+  let c=0,t=0;day.forEach((v,i)=>{if(i===n-1)M.tsb=c-t;c+=(v-c)/42;t+=(v-t)/7;});
   M.ctl=c;M.atl=t;
-  $("k1").textContent=c.toFixed(0);$("k2").textContent=t.toFixed(0);$("k3").textContent=M.tsb.toFixed(0);
 }
-function summary(){
+function showState(){
+  metrics();
+  const f=M.tsb<-20?["Très fatigué","#ef4444"]:M.tsb<-10?["Fatigué","#f97316"]:M.tsb<6?["En forme normale","#22c55e"]:["Frais","#3b82f6"];
+  const h=M.h24>90?["Grosse séance hier","#f97316"]:M.h24>30?["Séance légère hier","#22c55e"]:["Repos hier","#3b82f6"];
+  const box=$("state");box.replaceChildren();
+  [["Fraîcheur",f],["Dernières 24 h",h]].forEach(([l,[t,c]])=>{
+    const d=document.createElement("div"),s=document.createElement("span"),p=document.createElement("span");
+    s.className="mut";s.textContent=l;p.className="pill";p.style.background=c;p.textContent=t;
+    d.append(s,document.createElement("br"),p);box.append(d);
+  });
   const now=Date.now();let v=0,r=0;
   D.acts.forEach(a=>{if(now-new Date(a.t).getTime()<7*864e5){if(/Ride/.test(a.sport))v+=a.sec;else if(/Run/.test(a.sport))r+=a.sec;}});
-  $("sum").textContent="7 jours : vélo "+Math.round(v/60)+" min, course "+Math.round(r/60)+" min. 24 h : "+Math.round(M.h24)+" min.";
-  const t=$("last");t.replaceChildren();
-  D.acts.slice(-5).reverse().forEach(a=>{
-    const tr=document.createElement("tr");
-    [new Date(a.t).toLocaleDateString("fr-FR",{weekday:"short",day:"numeric"}),a.sport.replace("Virtual","Virtuel "),Math.round(a.sec/60)+" min",a.w?Math.round(a.w)+" W":""].forEach(x=>{const td=document.createElement("td");td.textContent=x;tr.append(td);});
-    t.append(tr);
-  });
+  const hm=s=>Math.floor(s/3600)+" h "+String(Math.round(s%3600/60)).padStart(2,"0");
+  $("wk").textContent="Cette semaine : vélo "+hm(v)+", course "+hm(r)+".";
 }
 
-function build(){
-  const ftp=+$("ftp").value,dur=+$("dur").value,leg=+$("leg").value,som=+$("som").value,j=+$("jour").value;
-  const z=(a,b)=>Math.round(ftp*a)+"–"+Math.round(ftp*b)+" W";
-  let type=$("type").value==="auto"?DEF[j]:$("type").value,notes=[],red=0;
-  if(type==="libre")return {notes:["Week-end : sortie route libre en endurance, ou repos."],rows:[]};
-  if(leg<=4||som<6||M.h24>90||M.tsb<-20){
-    if(type!=="facile")notes.push("Séance allégée : forme ou charge récente insuffisante (fraîcheur "+M.tsb.toFixed(0)+", "+Math.round(M.h24)+" min sur 24 h).");
+/* ---------- questions ---------- */
+document.querySelectorAll(".chips[data-k]").forEach(g=>g.onclick=e=>{
+  const b=e.target.closest("button");if(!b)return;
+  g.querySelectorAll("button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+  ans[g.dataset.k]=b.dataset.v;
+  const ok=["sleep","legs","pain","dur"].every(k=>ans[k]);
+  $("go").disabled=!ok;$("go").style.opacity=ok?1:.5;
+});
+
+/* ---------- construction de la séance ---------- */
+const col=f=>f<.55?"#7a8aa0":f<.76?"#3b82f6":f<.91?"#22c55e":f<1.06?"#eab308":f<1.21?"#f97316":"#ef4444";
+function plan(){
+  const ftp=+$("ftp").value,j=+$("jour").value,sl=+ans.sleep,lg=+ans.legs,dur=+ans.dur;
+  const z=(a,b)=>Math.round(ftp*a)+" à "+Math.round(ftp*b)+" W";
+  const S=(min,a,b)=>({min,a,b});
+  let type=$("type").value==="auto"?DEF[j]:$("type").value,why=[],red=0;
+  if(ans.pain==="oui")return {rest:true};
+  if(type==="libre")return {free:true};
+  if(lg<=3||sl<6||M.h24>90||M.tsb<-20||ans.pain==="leger"){
+    if(type!=="facile")why.push("Séance allégée : ton corps a besoin de récupérer aujourd’hui.");
     type="facile";
-  }else if(leg<=6||som<7||M.tsb<-10){red=1;if(type!=="facile")notes.push("Volume réduit d’une répétition.");}
-  let r=[];
+  }else if(lg<=6||sl<7||M.tsb<-10){red=1;if(type!=="facile")why.push("Une répétition en moins pour ménager tes jambes.");}
+  let g=[];
   if(type==="facile"){
-    const n=Math.floor((dur-15)/5);
-    r=[["Échauffement",8,"Progressif "+z(.4,.6)],["Corps",n*5,n+" × (4 min "+z(.56,.75)+", cadence 90-100, puis 1 min "+z(.3,.5)+")"],["Retour au calme",7,z(.4,.5)]];
+    const n=Math.floor((dur-15)/5),body=[];
+    for(let i=0;i<n;i++)body.push(S(4,.65,.65),S(1,.4,.4));
+    g=[{n:"Échauffement",d:"Progressif, "+z(.4,.6),c:"Pédale souple, rien de dur.",s:[S(8,.4,.6)]},
+       {n:"Corps de séance",d:n+" × (4 min à "+z(.56,.75)+", puis 1 min très facile)",c:"Tu peux parler normalement. Pédale vite et léger, 90 à 100 tours par minute.",s:body},
+       {n:"Retour au calme",d:z(.4,.5),c:"Tu redescends tranquillement.",s:[S(7,.5,.4)]}];
   }else if(type==="seuil"){
-    const L=dur>=55?10:8,n=Math.max(2,(dur>=50?3:2)-red);
-    r=[["Échauffement",10,"6 min "+z(.5,.7)+", puis 3 × (30 s "+z(1.06,1.2)+" cadence 100 / 30 s facile)"],["Corps",n*L+(n-1)*4,n+" × "+L+" min "+z(.91,.98)+", cadence 85-95, récup 4 min "+z(.3,.5)],["Retour au calme",8,"Dégressif "+z(.7,.4)]];
+    const L=dur>=55?10:8,n=Math.max(2,(dur>=50?3:2)-red),body=[];
+    for(let i=0;i<n;i++){body.push(S(L,.945,.945));if(i<n-1)body.push(S(4,.4,.4));}
+    g=[{n:"Échauffement",d:"6 min progressifs, puis 3 accélérations de 30 s à "+z(1.06,1.2),c:"Les accélérations : cadence rapide, 100 tours par minute.",s:[S(6,.5,.7),S(.5,1.13,1.13),S(.5,.4,.4),S(.5,1.13,1.13),S(.5,.4,.4),S(.5,1.13,1.13),S(.5,.4,.4)]},
+       {n:"Corps de séance",d:n+" × "+L+" min à "+z(.91,.98)+", récup 4 min à "+z(.3,.5),c:"Effort soutenu : tu ne peux dire que des phrases courtes. Régulier du début à la fin.",s:body},
+       {n:"Retour au calme",d:"Dégressif jusqu’à "+z(.4,.5),c:"Tu laisses redescendre le cœur.",s:[S(8,.7,.4)]}];
   }else if(type==="pma"){
-    const n=Math.max(3,Math.min(6,Math.floor((dur-15)/6))-red);
-    r=[["Échauffement",10,"5 min "+z(.5,.7)+", 3 min "+z(.7,.85)+", 2 × 1 min "+z(1.06,1.15)],["Corps",n*6-3,n+" × 3 min "+z(1.12,1.2)+", cadence 90-100, récup 3 min "+z(.3,.5)],["Retour au calme",8,"Dégressif "+z(.7,.4)]];
-    notes.push("Sous "+Math.round(ftp*1.06)+" W avant la fin, arrête les répétitions.");
+    const n=Math.max(3,Math.min(6,Math.floor((dur-15)/6))-red),body=[];
+    for(let i=0;i<n;i++){body.push(S(3,1.16,1.16));if(i<n-1)body.push(S(3,.4,.4));}
+    g=[{n:"Échauffement",d:"10 min progressifs avec 2 courtes accélérations",c:"Monte doucement en intensité.",s:[S(5,.5,.7),S(3,.7,.85),S(.5,1.1,1.1),S(.5,.5,.5),S(.5,1.1,1.1),S(.5,.5,.5)]},
+       {n:"Corps de séance",d:n+" × 3 min à "+z(1.12,1.2)+", récup 3 min à "+z(.3,.5),c:"Très dur : impossible de parler. Le dernier effort doit être aussi fort que le premier. Si tu craques avant, arrête les efforts.",s:body},
+       {n:"Retour au calme",d:"Dégressif jusqu’à "+z(.4,.5),c:"Tu récupères.",s:[S(8,.7,.4)]}];
   }else{
-    r=[["Échauffement",10,z(.4,.7)+" progressif"],["Corps",22,"Test rampe MyWhoosh jusqu’à l’échec. FTP ≈ 75 % de la meilleure minute"],["Retour au calme",10,z(.3,.5)]];
+    g=[{n:"Échauffement",d:"Progressif, "+z(.4,.7),c:"Mets-toi en route doucement.",s:[S(10,.4,.7)]},
+       {n:"Test rampe MyWhoosh",d:"Lance le test rampe dans l’application",c:"La résistance monte toute seule. Continue jusqu’à ne plus pouvoir tenir. Ton FTP sera environ 75 % de ta meilleure minute.",s:[S(22,.5,1.5)]},
+       {n:"Retour au calme",d:z(.3,.5),c:"Pédale très léger.",s:[S(10,.5,.3)]}];
   }
-  return {notes,rows:r,tot:r.reduce((s,x)=>s+x[1],0),type};
+  const tot=g.reduce((s,x)=>s+x.s.reduce((a,b)=>a+b.min,0),0);
+  return {type,why,g,tot};
 }
-function render(){
-  if(!(+$("ftp").value>=60)){$("ftpn").textContent="Renseigne ton FTP.";return;}
-  $("ftpn").textContent="";
-  metrics();summary();
-  const b=build(),o=$("out");o.replaceChildren();
-  const c=document.createElement("div");c.className="card";
-  const h=document.createElement("h2");h.style.cssText="font-size:1.1rem;margin:0 0 6px";
-  h.textContent=b.rows.length?"Séance : "+b.type:"Week-end";c.append(h);
-  b.notes.forEach(t=>{const p=document.createElement("p");p.className="note";p.textContent=t;c.append(p);});
-  if(b.rows.length){
-    const w=document.createElement("div");w.className="box";const t=document.createElement("table");
-    t.innerHTML="<tr><th>Phase</th><th>Min</th><th>Cible</th></tr>";
-    b.rows.forEach(x=>{const tr=document.createElement("tr");x.forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.append(td);});t.append(tr);});
-    const e=new Date(2000,0,1,6,b.tot);
-    const f=document.createElement("p");f.className="mut";
-    f.textContent="Total "+b.tot+" min. Fin à "+String(e.getHours()).padStart(2,"0")+"h"+String(e.getMinutes()).padStart(2,"0")+" si départ à 6h00.";
-    w.append(t);c.append(w,f);
-  }
-  o.append(c);
-}
-$("go").onclick=render;
 
+/* ---------- graphique en barres ---------- */
+function chart(g,tot){
+  const NS="http://www.w3.org/2000/svg",W=640,H=190,B=160,top=10;
+  const segs=g.flatMap(x=>x.s),mx=Math.max(1.25,...segs.map(s=>Math.max(s.a,s.b)));
+  const svg=document.createElementNS(NS,"svg");svg.setAttribute("viewBox","0 0 "+W+" "+H);
+  const mk=(t,at)=>{const e=document.createElementNS(NS,t);for(const k in at)e.setAttribute(k,at[k]);svg.append(e);return e;};
+  const Y=f=>B-f/mx*(B-top);let x=0;
+  segs.forEach(s=>{
+    const w=s.min/tot*W,x2=x+w;
+    mk("polygon",{points:[x,B,x,Y(s.a),x2,Y(s.b),x2,B].join(" "),fill:col((s.a+s.b)/2),stroke:"#0000",opacity:".92"});
+    x=x2;
+  });
+  const fy=Y(1);mk("line",{x1:0,x2:W,y1:fy,y2:fy,stroke:"#888","stroke-dasharray":"4 4","stroke-width":1});
+  const t=mk("text",{x:4,y:fy-4,fill:"#888","font-size":11});t.textContent="FTP";
+  for(let m=0;m<=tot;m+=10){const a=mk("text",{x:Math.min(m/tot*W,W-14),y:H-4,fill:"#888","font-size":11});a.textContent=m+" min";}
+  return svg;
+}
+
+/* ---------- affichage ---------- */
+function show(){
+  if(!(+$("ftp").value>=60)){$("ftpn").textContent="Renseigne ton FTP dans les réglages.";$("ftpn").parentNode.open=true;return;}
+  showState();cur=plan();
+  const o=$("res");o.replaceChildren();
+  const c=document.createElement("div");c.className="card";o.append(c);
+  const add=(tag,txt,cls)=>{const e=document.createElement(tag);e.textContent=txt;if(cls)e.className=cls;c.append(e);return e;};
+  if(cur.rest){add("h2","Pas de vélo aujourd’hui");add("p","Avec une douleur, on ne force pas. Repose-toi. Si elle dure, parle-en à un parent ou à un médecin.");return;}
+  if(cur.free){add("h2","Week-end");add("p","Sortie route libre en endurance, ou repos.");return;}
+  add("h2","Séance : "+NAME[cur.type]);
+  cur.why.forEach(w=>add("p",w,"note"));
+  c.append(chart(cur.g,cur.tot));
+  const lg=document.createElement("div");lg.className="leg";
+  [["Facile",.3],["Endurance",.65],["Tempo",.85],["Seuil",.97],["PMA",1.12],["Max",1.3]].forEach(([n,f])=>{
+    const s=document.createElement("span"),i=document.createElement("i");i.style.background=col(f);s.append(i,n);lg.append(s);});
+  c.append(lg);
+  cur.g.forEach(x=>{
+    const d=document.createElement("div");d.className="step";
+    const b=document.createElement("b"),a=document.createElement("span"),m=document.createElement("span");
+    a.textContent=x.n;m.textContent=Math.round(x.s.reduce((s,y)=>s+y.min,0))+" min";b.append(a,m);
+    const p=document.createElement("div");p.className="mut";p.textContent=x.d;
+    const q=document.createElement("div");q.textContent=x.c;
+    d.append(b,p,q);c.append(d);
+  });
+  const e=new Date(2000,0,1,6,Math.round(cur.tot));
+  add("p","Fin à "+String(e.getHours()).padStart(2,"0")+"h"+String(e.getMinutes()).padStart(2,"0")+" si tu démarres à 6h00.","mut");
+  const bt=document.createElement("button");bt.className="go";bt.textContent="En parler au coach";
+  bt.onclick=()=>{tab("c");say("Voici mon check-in du matin : sommeil "+ans.sleep+" h environ, jambes "+(+ans.legs<=3?"lourdes":+ans.legs<=6?"normales":"légères")+", douleur : "+ans.pain+", "+ans.dur+" min dispo. L’appli me propose "+NAME[cur.type]+". Qu’en penses-tu ?");};
+  c.append(bt);
+  c.scrollIntoView({behavior:"smooth",block:"start"});
+}
+$("go").onclick=show;
+
+/* ---------- onglets ---------- */
+function tab(t){
+  document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
+  $("t-s").hidden=t!=="s";$("t-c").hidden=t!=="c";
+}
+document.querySelector(".tabs").onclick=e=>{const b=e.target.closest("button");if(b)tab(b.dataset.t);};
+
+/* ---------- coach IA ---------- */
 const H=[];let busy=false;
 function bubble(role,text){
   const d=document.createElement("div");
-  d.style.cssText="white-space:pre-wrap;padding:8px 10px;border-radius:10px;max-width:92%;"+(role==="user"?"align-self:flex-end;background:var(--acc);color:#fff":"align-self:flex-start;background:var(--bg);border:1px solid var(--line)");
+  d.style.cssText="white-space:pre-wrap;padding:8px 10px;border-radius:12px;max-width:92%;"+(role==="user"?"align-self:flex-end;background:var(--acc);color:#fff":"align-self:flex-start;background:var(--bg);border:1px solid var(--line)");
   d.textContent=text;$("chat").append(d);d.scrollIntoView({block:"nearest"});return d;
 }
 function ctx(){
   metrics();
   return {aujourdhui:new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}),
     ftp:+$("ftp").value||D.ftp||null,forme_ctl:Math.round(M.ctl),fatigue_atl:Math.round(M.atl),fraicheur_tsb:Math.round(M.tsb),minutes_24h:Math.round(M.h24),
+    checkin:ans,seance_proposee:cur&&cur.type?NAME[cur.type]:null,
     activites:D.acts.slice(-10).map(a=>({date:a.t.slice(0,10),sport:a.sport,min:Math.round(a.sec/60),watts:a.w?Math.round(a.w):null}))};
 }
 async function say(text){
@@ -162,9 +242,9 @@ async function say(text){
   const w=bubble("assistant","…");
   try{
     const r=await fetch("/api/coach",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:H,ctx:ctx()})});
-    if(r.status===401){w.textContent="Session expirée : reconnecte-toi à Strava.";}
-    else if(r.status===503){w.textContent="Clé IA absente sur le serveur (GROQ_API_KEY ou ANTHROPIC_API_KEY).";}
-    else if(!r.ok){w.textContent="Le coach ne répond pas. Réessaie.";}
+    if(r.status===401)w.textContent="Session expirée : reconnecte-toi à Strava.";
+    else if(r.status===503)w.textContent="Clé IA absente sur le serveur.";
+    else if(!r.ok)w.textContent="Le coach ne répond pas. Réessaie.";
     else{const j=await r.json();w.textContent=j.text;H.push({role:"assistant",content:j.text});}
   }catch(e){w.textContent="Connexion impossible. Réessaie.";}
   busy=false;
@@ -172,7 +252,7 @@ async function say(text){
 $("cgo").onclick=()=>say($("cin").value);
 $("cin").onkeydown=e=>{if(e.key==="Enter")say($("cin").value);};
 $("c1").onclick=()=>say("Prépare ma séance du jour.");
-$("c2").onclick=()=>say("Fais le point sur ma forme et ma charge récente.");
+$("c2").onclick=()=>say("Fais le point sur ma forme, en mots simples.");
 
 (async()=>{
   try{
@@ -180,10 +260,10 @@ $("c2").onclick=()=>say("Fais le point sur ma forme et ma charge récente.");
     if(r.status===401){$("auth").hidden=false;return;}
     if(!r.ok)throw new Error();
     D=await r.json();
+    if(D.name)$("hi").textContent="Salut "+D.name;
     if(D.ftp)$("ftp").value=Math.round(D.ftp);
-    else $("ftpn").textContent="FTP absent de Strava : saisis-le (ou fais le test rampe).";
-    $("app").hidden=false;
-    if(D.ftp)render();else{metrics();summary();}
+    else $("ftpn").textContent="FTP absent de Strava : saisis-le, ou fais le test rampe.";
+    $("app").hidden=false;showState();
   }catch(e){$("auth").hidden=false;$("auth").querySelector("p").textContent="Strava ne répond pas. Réessaie ou reconnecte-toi.";}
 })();
-</script></body></html>
+</script></main></body></html>
