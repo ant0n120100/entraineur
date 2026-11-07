@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Coach du matin</title>
+<style>
+:root{--bg:#161615;--fg:#ecece8;--mut:#9a9a93;--card:#222220;--line:#34342f;--acc:#ff8a57;color-scheme:dark}
+@media (prefers-color-scheme:light){:root{--bg:#fafaf7;--fg:#1c1c1a;--mut:#6b6b66;--card:#fff;--line:#e3e3dc;--acc:#d9541e;color-scheme:light}}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+main{max-width:640px;margin:0 auto;padding:16px}
+h1{font-size:1.4rem;margin:.2em 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
+label{display:block;font-size:.85rem;color:var(--mut);margin:8px 0 2px}
+input,select,button,a.btn{font:inherit;width:100%;box-sizing:border-box;padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button,a.btn{display:block;text-align:center;text-decoration:none;background:var(--acc);color:#fff;border:0;font-weight:600;margin-top:12px;cursor:pointer}
+.mut{color:var(--mut);font-size:.9rem}
+.box{overflow-x:auto}
+table{border-collapse:collapse;width:100%}
+td,th{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:.8rem;color:var(--mut)}
+.kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.kpi b{display:block;font-size:1.3rem}
+.note{border-left:3px solid var(--acc);padding-left:10px;margin:8px 0}
+</style></head><body><main>
+<h1>Coach du matin</h1>
+<div id="auth" class="card" hidden>
+<p>Connecte ton compte Strava pour calibrer les séances sur tes données réelles.</p>
+<a class="btn" href="/auth/login">Se connecter avec Strava</a>
+</div>
+
+<div id="app" hidden>
+<div class="card">
+<div class="kpi"><div><b id="k1">–</b><span class="mut">Forme (CTL)</span></div><div><b id="k2">–</b><span class="mut">Fatigue (ATL)</span></div><div><b id="k3">–</b><span class="mut">Fraîcheur (TSB)</span></div></div>
+<p class="mut" id="sum"></p>
+<div class="box"><table id="last"></table></div>
+</div>
+
+<div class="card">
+<div class="row">
+<div><label for="jour">Jour</label><select id="jour"><option value="1">Lundi</option><option value="2">Mardi</option><option value="3">Mercredi</option><option value="4">Jeudi</option><option value="5">Vendredi</option><option value="6">Samedi</option><option value="0">Dimanche</option></select></div>
+<div><label for="dur">Durée dispo</label><select id="dur"><option value="45">45 min</option><option value="52">52 min</option><option value="58" selected>58 min</option></select></div>
+</div>
+<div class="row">
+<div><label for="ftp">FTP (W)</label><input id="ftp" type="number" min="60" max="500"></div>
+<div><label for="type">Séance</label><select id="type"><option value="auto">Auto selon le jour</option><option value="seuil">Seuil</option><option value="pma">PMA</option><option value="facile">Facile cadence</option><option value="test">Test FTP rampe</option></select></div>
+</div>
+<div class="row">
+<div><label for="som">Sommeil (h)</label><input id="som" type="number" min="3" max="12" step="0.5" value="7.5"></div>
+<div><label for="leg">Jambes (1-10)</label><input id="leg" type="number" min="1" max="10" value="7"></div>
+</div>
+<button id="go">Générer la séance</button>
+<p class="mut" id="ftpn"></p>
+</div>
+<div id="out"></div>
+<p class="mut"><a href="/auth/logout" style="color:inherit">Se déconnecter</a></p>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const DEF={1:"seuil",2:"facile",3:"facile",4:"pma",5:"facile",6:"libre",0:"libre"};
+let D=null,M={h24:0,tsb:0};
+$("jour").value=String(new Date().getDay());
+
+function load(a,ftp){
+  const m=a.sec/60;
+  if(/Ride/.test(a.sport)&&a.w&&ftp){const f=a.w/ftp;return a.sec/3600*f*f*100;}
+  return m*(/Run/.test(a.sport)?1:0.6);
+}
+function metrics(){
+  const ftp=+$("ftp").value||0,now=Date.now(),days=60,day=new Array(days).fill(0);
+  M.h24=0;
+  D.acts.forEach(a=>{
+    const age=Math.floor((now-new Date(a.t).getTime())/864e5);
+    if(age>=0&&age<days)day[days-1-age]+=load(a,ftp);
+    if(now-new Date(a.t).getTime()<864e5)M.h24+=a.sec/60;
+  });
+  let c=0,t=0;
+  day.forEach((v,i)=>{if(i===days-1){M.tsb=c-t;}c+=(v-c)/42;t+=(v-t)/7;});
+  M.ctl=c;M.atl=t;
+  $("k1").textContent=c.toFixed(0);$("k2").textContent=t.toFixed(0);$("k3").textContent=M.tsb.toFixed(0);
+}
+function summary(){
+  const now=Date.now();let v=0,r=0;
+  D.acts.forEach(a=>{if(now-new Date(a.t).getTime()<7*864e5){if(/Ride/.test(a.sport))v+=a.sec;else if(/Run/.test(a.sport))r+=a.sec;}});
+  $("sum").textContent="7 jours : vélo "+Math.round(v/60)+" min, course "+Math.round(r/60)+" min. 24 h : "+Math.round(M.h24)+" min.";
+  const t=$("last");t.replaceChildren();
+  D.acts.slice(-5).reverse().forEach(a=>{
+    const tr=document.createElement("tr");
+    [new Date(a.t).toLocaleDateString("fr-FR",{weekday:"short",day:"numeric"}),a.sport.replace("Virtual","Virtuel "),Math.round(a.sec/60)+" min",a.w?Math.round(a.w)+" W":""].forEach(x=>{const td=document.createElement("td");td.textContent=x;tr.append(td);});
+    t.append(tr);
+  });
+}
+
+function build(){
+  const ftp=+$("ftp").value,dur=+$("dur").value,leg=+$("leg").value,som=+$("som").value,j=+$("jour").value;
+  const z=(a,b)=>Math.round(ftp*a)+"–"+Math.round(ftp*b)+" W";
+  let type=$("type").value==="auto"?DEF[j]:$("type").value,notes=[],red=0;
+  if(type==="libre")return {notes:["Week-end : sortie route libre en endurance, ou repos."],rows:[]};
+  if(leg<=4||som<6||M.h24>90||M.tsb<-20){
+    if(type!=="facile")notes.push("Séance allégée : forme ou charge récente insuffisante (fraîcheur "+M.tsb.toFixed(0)+", "+Math.round(M.h24)+" min sur 24 h).");
+    type="facile";
+  }else if(leg<=6||som<7||M.tsb<-10){red=1;if(type!=="facile")notes.push("Volume réduit d’une répétition.");}
+  let r=[];
+  if(type==="facile"){
+    const n=Math.floor((dur-15)/5);
+    r=[["Échauffement",8,"Progressif "+z(.4,.6)],["Corps",n*5,n+" × (4 min "+z(.56,.75)+", cadence 90-100, puis 1 min "+z(.3,.5)+")"],["Retour au calme",7,z(.4,.5)]];
+  }else if(type==="seuil"){
+    const L=dur>=55?10:8,n=Math.max(2,(dur>=50?3:2)-red);
+    r=[["Échauffement",10,"6 min "+z(.5,.7)+", puis 3 × (30 s "+z(1.06,1.2)+" cadence 100 / 30 s facile)"],["Corps",n*L+(n-1)*4,n+" × "+L+" min "+z(.91,.98)+", cadence 85-95, récup 4 min "+z(.3,.5)],["Retour au calme",8,"Dégressif "+z(.7,.4)]];
+  }else if(type==="pma"){
+    const n=Math.max(3,Math.min(6,Math.floor((dur-15)/6))-red);
+    r=[["Échauffement",10,"5 min "+z(.5,.7)+", 3 min "+z(.7,.85)+", 2 × 1 min "+z(1.06,1.15)],["Corps",n*6-3,n+" × 3 min "+z(1.12,1.2)+", cadence 90-100, récup 3 min "+z(.3,.5)],["Retour au calme",8,"Dégressif "+z(.7,.4)]];
+    notes.push("Sous "+Math.round(ftp*1.06)+" W avant la fin, arrête les répétitions.");
+  }else{
+    r=[["Échauffement",10,z(.4,.7)+" progressif"],["Corps",22,"Test rampe MyWhoosh jusqu’à l’échec. FTP ≈ 75 % de la meilleure minute"],["Retour au calme",10,z(.3,.5)]];
+  }
+  return {notes,rows:r,tot:r.reduce((s,x)=>s+x[1],0),type};
+}
+function render(){
+  if(!(+$("ftp").value>=60)){$("ftpn").textContent="Renseigne ton FTP.";return;}
+  $("ftpn").textContent="";
+  metrics();summary();
+  const b=build(),o=$("out");o.replaceChildren();
+  const c=document.createElement("div");c.className="card";
+  const h=document.createElement("h2");h.style.cssText="font-size:1.1rem;margin:0 0 6px";
+  h.textContent=b.rows.length?"Séance : "+b.type:"Week-end";c.append(h);
+  b.notes.forEach(t=>{const p=document.createElement("p");p.className="note";p.textContent=t;c.append(p);});
+  if(b.rows.length){
+    const w=document.createElement("div");w.className="box";const t=document.createElement("table");
+    t.innerHTML="<tr><th>Phase</th><th>Min</th><th>Cible</th></tr>";
+    b.rows.forEach(x=>{const tr=document.createElement("tr");x.forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.append(td);});t.append(tr);});
+    const e=new Date(2000,0,1,6,b.tot);
+    const f=document.createElement("p");f.className="mut";
+    f.textContent="Total "+b.tot+" min. Fin à "+String(e.getHours()).padStart(2,"0")+"h"+String(e.getMinutes()).padStart(2,"0")+" si départ à 6h00.";
+    w.append(t);c.append(w,f);
+  }
+  o.append(c);
+}
+$("go").onclick=render;
+
+(async()=>{
+  try{
+    const r=await fetch("/api/data");
+    if(r.status===401){$("auth").hidden=false;return;}
+    if(!r.ok)throw new Error();
+    D=await r.json();
+    if(D.ftp)$("ftp").value=Math.round(D.ftp);
+    else $("ftpn").textContent="FTP absent de Strava : saisis-le (ou fais le test rampe).";
+    $("app").hidden=false;
+    if(D.ftp)render();else{metrics();summary();}
+  }catch(e){$("auth").hidden=false;$("auth").querySelector("p").textContent="Strava ne répond pas. Réessaie ou reconnecte-toi.";}
+})();
+</script></body></html>
