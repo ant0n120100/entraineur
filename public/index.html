@@ -52,6 +52,12 @@ th{font-size:.8rem;color:var(--mut)}
 <p class="mut" id="ftpn"></p>
 </div>
 <div id="out"></div>
+<div class="card">
+<h2 style="font-size:1.1rem;margin:0 0 6px">Coach IA</h2>
+<div id="chat" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px"></div>
+<div class="row"><button id="c1" type="button" style="margin-top:0">Ma séance du jour</button><button id="c2" type="button" style="margin-top:0">Où j’en suis ?</button></div>
+<div class="row" style="grid-template-columns:1fr auto;margin-top:10px"><input id="cin" placeholder="Écris au coach…" autocomplete="off"><button id="cgo" type="button" style="margin-top:0;width:auto">Envoyer</button></div>
+</div>
 <p class="mut"><a href="/auth/logout" style="color:inherit">Se déconnecter</a></p>
 </div>
 
@@ -137,6 +143,36 @@ function render(){
   o.append(c);
 }
 $("go").onclick=render;
+
+const H=[];let busy=false;
+function bubble(role,text){
+  const d=document.createElement("div");
+  d.style.cssText="white-space:pre-wrap;padding:8px 10px;border-radius:10px;max-width:92%;"+(role==="user"?"align-self:flex-end;background:var(--acc);color:#fff":"align-self:flex-start;background:var(--bg);border:1px solid var(--line)");
+  d.textContent=text;$("chat").append(d);d.scrollIntoView({block:"nearest"});return d;
+}
+function ctx(){
+  metrics();
+  return {aujourdhui:new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}),
+    ftp:+$("ftp").value||D.ftp||null,forme_ctl:Math.round(M.ctl),fatigue_atl:Math.round(M.atl),fraicheur_tsb:Math.round(M.tsb),minutes_24h:Math.round(M.h24),
+    activites:D.acts.slice(-10).map(a=>({date:a.t.slice(0,10),sport:a.sport,min:Math.round(a.sec/60),watts:a.w?Math.round(a.w):null}))};
+}
+async function say(text){
+  if(busy||!text.trim())return;
+  busy=true;H.push({role:"user",content:text});bubble("user",text);$("cin").value="";
+  const w=bubble("assistant","…");
+  try{
+    const r=await fetch("/api/coach",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:H,ctx:ctx()})});
+    if(r.status===401){w.textContent="Session expirée : reconnecte-toi à Strava.";}
+    else if(r.status===503){w.textContent="Clé IA absente sur le serveur (GROQ_API_KEY ou ANTHROPIC_API_KEY).";}
+    else if(!r.ok){w.textContent="Le coach ne répond pas. Réessaie.";}
+    else{const j=await r.json();w.textContent=j.text;H.push({role:"assistant",content:j.text});}
+  }catch(e){w.textContent="Connexion impossible. Réessaie.";}
+  busy=false;
+}
+$("cgo").onclick=()=>say($("cin").value);
+$("cin").onkeydown=e=>{if(e.key==="Enter")say($("cin").value);};
+$("c1").onclick=()=>say("Prépare ma séance du jour.");
+$("c2").onclick=()=>say("Fais le point sur ma forme et ma charge récente.");
 
 (async()=>{
   try{

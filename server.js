@@ -9,6 +9,7 @@ app.use(cookieSession({
   httpOnly: true, sameSite: "lax", secure: BASE_URL.startsWith("https")
 }));
 app.use(express.static("public"));
+app.use(express.json({ limit: "50kb" }));
 
 async function token(body) {
   const r = await fetch("https://www.strava.com/oauth/token", {
@@ -70,6 +71,51 @@ app.get("/api/data", async (req, res) => {
   } catch (e) {
     res.status(e.code === 401 ? 401 : 502).json({ error: e.message });
   }
+});
+
+const SYSTEM = `Tu es l'entraîneur personnel d'un jeune triathlète de 15 ans (vélo, course à pied, athlétisme). Tu parles français, tutoies, réponds court et concret.
+Contexte fixe : home-trainer Bkool sur MyWhoosh, vélo de route. Créneau vélo strict 6h00-7h00, 58 min maximum tout compris, il descend à 7h00 pour le bus. Entraînements à côté : mercredi, et vendredi une semaine sur deux (sinon mardi). Objectif : progresser en vélo pour des courses au printemps (CLM ou peloton), en restant complémentaire avec l'athlétisme. Il veut des séances structurées, jamais "pédaler librement".
+Règles :
+- Avant de valider une séance, demande l'état de forme du matin (sommeil en heures, jambes sur 10, douleurs) s'il ne l'a pas donné.
+- Utilise les données Strava fournies (FTP, forme CTL, fatigue ATL, fraîcheur TSB, activités récentes) pour adapter. Dis ce que tu constates en une phrase.
+- Format d'une séance : Échauffement / Corps de séance / Retour au calme, avec durées en minutes et cibles en watts calculées sur le FTP (jamais de FC : pas de ceinture). Vérifie que le total ne dépasse pas 58 min.
+- Maximum 2 séances intenses par semaine, jamais le matin d'un entraînement du mercredi ou vendredi. Si fatigue élevée, jambes lourdes ou sommeil court : séance facile ou repos.
+- Le FTP vient d'une estimation du home-trainer, il est peu fiable : propose un test rampe MyWhoosh si pertinent.
+- Si douleur persistante, malaise ou fatigue anormale : conseille d'arrêter et d'en parler à un parent ou à un médecin.
+- Ne dis pas que tu as des données que tu n'as pas. Pas de longs discours.`;
+
+app.post("/api/coach", async (req, res) => {
+  if (!req.session || !req.session.rt) return res.status(401).json({ error: "auth" });
+  const { messages = [], ctx = {} } = req.body || {};
+  const msgs = messages.slice(-12).map(m => ({
+    role: m.role === "assistant" ? "assistant" : "user",
+    content: String(m.content || "").slice(0, 2000)
+  }));
+  if (!msgs.length || msgs[msgs.length - 1].role !== "user") return res.status(400).json({ error: "bad" });
+  const system = SYSTEM + "\n\nDonnées Strava de l'athlète :\n" + JSON.stringify(ctx).slice(0, 4000);
+  const A = process.env.ANTHROPIC_API_KEY, G = process.env.GROQ_API_KEY;
+  try {
+    let r, j, text;
+    if (A) {
+      r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "x-api-key": A, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        body: JSON.stringify({ model: "claude-sonnet-5-5", max_tokens: 900, system, messages: msgs })
+      });
+      j = await r.json();
+      text = r.ok && j.content ? j.content.map(b => b.text || "").join("") : null;
+    } else if (G) {
+      r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + G, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "llama-3.3-70b-versatile", max_tokens: 900, messages: [{ role: "system", content: system }, ...msgs] })
+      });
+      j = await r.json();
+      text = r.ok && j.choices ? j.choices[0].message.content : null;
+    } else return res.status(503).json({ error: "no_key" });
+    if (!text) return res.status(502).json({ error: "llm" });
+    res.json({ text });
+  } catch (e) { res.status(502).json({ error: "llm" }); }
 });
 
 app.listen(process.env.PORT || 3000, () => console.log("Coach matin prêt"));
