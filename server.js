@@ -108,7 +108,7 @@ app.post("/api/coach", async (req, res) => {
       r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: "Bearer " + G, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "llama-3.3-70b-versatile", max_tokens: 900, messages: [{ role: "system", content: system }, ...msgs] })
+        body: JSON.stringify({ model: process.env.GROQ_MODEL || "openai/gpt-oss-120b", max_tokens: 2500, reasoning_effort: "low", messages: [{ role: "system", content: system }, ...msgs] })
       });
       j = await r.json();
       text = r.ok && j.choices ? j.choices[0].message.content : null;
