@@ -113,9 +113,12 @@ app.post("/api/coach", async (req, res) => {
       j = await r.json();
       text = r.ok && j.choices ? j.choices[0].message.content : null;
     } else return res.status(503).json({ error: "no_key" });
-    if (!text) return res.status(502).json({ error: "llm" });
+    if (!text) {
+      console.error("LLM erreur", r.status, JSON.stringify(j).slice(0, 500));
+      return res.status(502).json({ error: "llm", status: r.status });
+    }
     res.json({ text });
-  } catch (e) { res.status(502).json({ error: "llm" }); }
+  } catch (e) { console.error("LLM exception", e.message); res.status(502).json({ error: "llm" }); }
 });
 
 app.listen(process.env.PORT || 3000, () => console.log("Coach matin prêt"));
